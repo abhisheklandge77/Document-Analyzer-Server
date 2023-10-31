@@ -27,15 +27,45 @@ const upload = multer({ dest: "./pdf-files" });
 router.post("/parse-pdf", upload.single("file"), (req, res) => {
   const dataBuffer = fs.readFileSync(req.file.path);
 
+  const { keywords } = req.body;
+
   pdf(dataBuffer)
     .then(function (data) {
-      res.send(`Content: ${data.text}`);
+      const wordsCountMap = {};
+
+      const textArray = data.text
+        .trim()
+        .replace(/[^a-zA-Z0-9]/g, ",")
+        .split(",")
+        .filter((str) => str);
+
+      let keywordsArr = JSON.parse(keywords);
+      keywordsArr = keywordsArr.map((keyword) => keyword.toLowerCase());
+      keywordsArr.forEach((key) => {
+        wordsCountMap[key] = 0;
+      });
+
+      if (keywordsArr?.length) {
+        textArray.forEach((word) => {
+          keywordsArr.forEach((keyword) => {
+            if (word.toLowerCase().includes(keyword)) {
+              wordsCountMap[keyword] += 1;
+            }
+          });
+        });
+
+        const respose = {
+          contentLength: textArray.length,
+          wordsCountMap,
+        };
+        res.send(respose);
+      }
     })
     .catch(function (error) {
       res.send(`Error: ${error.message}`);
       console.log("Error:", error.message);
     });
-  fs.unlink(req.file.path);
+  // fs.unlink(req.file.path);
 });
 
 // For user registration
@@ -284,25 +314,23 @@ router.post("/reset-password/:id/:token", async (req, res) => {
 });
 
 // For save project
-router.post("/save-project", async (req, res) => {
-  const { id, projectName, htmlCode, cssCode, jsCode, projectId } = req.body;
+router.post("/save-document", async (req, res) => {
+  const { id, documentName, keywords, documentId } = req.body;
 
   try {
-    if (projectId) {
+    if (documentId) {
       const updatedUser = await userModel.findByIdAndUpdate(
         {
           _id: id,
         },
         {
           $set: {
-            "projects.$[project].projectName": projectName,
-            "projects.$[project].html": htmlCode,
-            "projects.$[project].css": cssCode,
-            "projects.$[project].js": jsCode,
+            "documents.$[document].documentName": documentName,
+            "documents.$[document].keywords": keywords,
           },
         },
         {
-          arrayFilters: [{ "project._id": projectId }],
+          arrayFilters: [{ "document._id": documentId }],
           new: true,
         }
       );
@@ -311,18 +339,16 @@ router.post("/save-project", async (req, res) => {
       res.status(201).json({
         status: 201,
         data: updatedUser,
-        message: `Project ${projectName} saved Successfully`,
+        message: `Document ${documentName} saved Successfully`,
       });
     } else {
       const updatedUser = await userModel.findByIdAndUpdate(
         { _id: id },
         {
           $addToSet: {
-            projects: {
-              projectName,
-              html: htmlCode,
-              css: cssCode,
-              js: jsCode,
+            documents: {
+              documentName,
+              keywords,
             },
           },
         },
@@ -330,16 +356,16 @@ router.post("/save-project", async (req, res) => {
       );
 
       const storedData = await updatedUser.save();
-      console.log("User Data project:::", storedData);
+      console.log("User Data document:::", storedData);
 
       res.status(201).json({
         status: 201,
         data: storedData,
-        message: `Project ${projectName} saved Successfully`,
+        message: `Document ${documentName} saved Successfully`,
       });
     }
   } catch (error) {
-    res.status(500).json({ status: 500, error: "Failed to save project !" });
+    res.status(500).json({ status: 500, error: "Failed to save document !" });
 
     console.log("Error:", error);
   }
