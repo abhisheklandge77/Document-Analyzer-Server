@@ -401,15 +401,15 @@ router.post("/update-user", async (req, res) => {
   }
 });
 
-router.post("/delete-project", async (req, res) => {
-  const { userId, project } = req.body;
+router.post("/delete-document", async (req, res) => {
+  const { userId, document } = req.body;
 
   try {
     const updatedUser = await userModel.findByIdAndUpdate(
       { _id: userId },
       {
         $pull: {
-          projects: project,
+          documents: document,
         },
       },
       {
@@ -424,7 +424,7 @@ router.post("/delete-project", async (req, res) => {
 
     res.status(201).json({
       status: 201,
-      message: "Project Deleted successfully",
+      message: "Document Deleted successfully",
       data: updatedUser,
     });
   } catch (error) {
